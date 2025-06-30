@@ -16,23 +16,56 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// Create axios instance with interceptors
+const apiClient = axios.create({
+  baseURL: API_URL,
+});
+
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to handle auth errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchCurrentUser();
+    } else {
+      setLoading(false);
     }
   }, [token]);
 
   const fetchCurrentUser = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<User>(`${API_URL}/users/me`);
+      const response = await apiClient.get<User>('/users/me');
       setUser(response.data);
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -47,14 +80,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       setError(null);
       
-      const response = await axios.post<LoginResponse>(`${API_URL}/auth/login`, credentials);
+      const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
       setToken(token);
       setUser(user);
-      
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'An error occurred during login';
       setError(errorMessage);
@@ -66,7 +97,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
     setToken(null);
     setUser(null);
   };
@@ -99,3 +129,6 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+// Export the configured axios instance for use in other components
+export { apiClient };

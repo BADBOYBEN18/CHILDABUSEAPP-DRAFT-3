@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, UserPlus, AlertTriangle } from 'lucide-react';
 import { User, UserRole } from '../../types';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { apiClient } from '../../contexts/AuthContext';
 
 const TeamManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -21,7 +19,7 @@ const TeamManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<User[]>(`${API_URL}/users`);
+      const response = await apiClient.get<User[]>('/users');
       setUsers(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch users');
@@ -65,7 +63,7 @@ const TeamManagement: React.FC = () => {
     }
 
     try {
-      await axios.delete(`${API_URL}/users/${userId}`);
+      await apiClient.delete(`/users/${userId}`);
       setUsers(users.filter(user => user._id !== userId));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete user');
@@ -284,7 +282,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
       let response;
       if (user) {
         // Update existing user
-        response = await axios.put(`${API_URL}/users/${user._id}`, {
+        response = await apiClient.put(`/users/${user._id}`, {
           name: formData.name,
           email: formData.email,
           role: formData.role,
@@ -294,7 +292,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSave }) => {
         });
       } else {
         // Create new user
-        response = await axios.post(`${API_URL}/auth/register`, formData);
+        response = await apiClient.post('/auth/register', formData);
       }
       
       onSave(response.data.user || response.data);

@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { User, CasePriority, CaseStatus } from '../../types';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { apiClient } from '../../contexts/AuthContext';
 
 const NewCaseForm: React.FC = () => {
   const navigate = useNavigate();
@@ -28,9 +26,9 @@ const NewCaseForm: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get<User[]>(`${API_URL}/users`);
+      const response = await apiClient.get<User[]>('/users');
       setUsers(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching users:', err);
       setError('Failed to load team members. Please refresh the page.');
     }
@@ -89,7 +87,11 @@ const NewCaseForm: React.FC = () => {
         dateOfIncident: formData.dateOfIncident || null,
       };
 
-      const response = await axios.post(`${API_URL}/cases`, submitData);
+      console.log('Submitting case data:', submitData);
+
+      const response = await apiClient.post('/cases', submitData);
+
+      console.log('Case created successfully:', response.data);
 
       // Navigate to cases list with success message
       navigate('/cases', {
@@ -99,6 +101,8 @@ const NewCaseForm: React.FC = () => {
       });
     } catch (err: any) {
       console.error('Error creating case:', err);
+      console.error('Error response:', err.response?.data);
+      
       setError(
         err.response?.data?.message ||
           'Failed to create case. Please try again.'
