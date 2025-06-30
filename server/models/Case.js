@@ -103,23 +103,33 @@ caseSchema.virtual('notes', {
 
 // Auto-generate case number
 caseSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const year = date.getFullYear();
-    
-    // Find the highest case number for this year
-    const highestCase = await this.constructor.findOne({
-      caseNumber: { $regex: `CPS-${year}-` }
-    }).sort({ caseNumber: -1 });
-    
-    let number = 1;
-    if (highestCase) {
-      const parts = highestCase.caseNumber.split('-');
-      number = parseInt(parts[2]) + 1;
+  if (this.isNew && !this.caseNumber) {
+    try {
+      const date = new Date();
+      const year = date.getFullYear();
+      
+      // Find the highest case number for this year
+      const highestCase = await this.constructor.findOne({
+        caseNumber: { $regex: `^CPS-${year}-` }
+      }).sort({ caseNumber: -1 }).exec();
+      
+      let number = 1;
+      if (highestCase && highestCase.caseNumber) {
+        const parts = highestCase.caseNumber.split('-');
+        if (parts.length === 3) {
+          const lastNumber = parseInt(parts[2]);
+          if (!isNaN(lastNumber)) {
+            number = lastNumber + 1;
+          }
+        }
+      }
+      
+      // Format the case number with padding
+      this.caseNumber = `CPS-${year}-${number.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Error generating case number:', error);
+      return next(error);
     }
-    
-    // Format the case number with padding
-    this.caseNumber = `CPS-${year}-${number.toString().padStart(3, '0')}`;
   }
   next();
 });
